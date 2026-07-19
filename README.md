@@ -6,4 +6,4 @@ During development, I explored integrating directly with major carriers such as 
 
 The application was designed with a modular tracker architecture, making it straightforward to add additional carrier integrations in the future as API access becomes available.
 
-> **Fun fact:** Hours spent fighting carrier developer portals: ~8
+> Hours spent fighting carrier developer portals: ~8
