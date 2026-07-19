@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -16,22 +19,38 @@ class GlobKurierTracker(CarrierTracker):
 
     BASE_URL = "https://api.globkurier.pl/v1/order/tracking"
 
+    # GlobKurier returns timestamps without a UTC offset.
+    # Treat those timestamps as GlobKurier's local Polish time.
+    API_TIMEZONE = ZoneInfo("Europe/Warsaw")
+
     def supports(self, tracking_number: str) -> bool:
         normalized = self._normalize_number(tracking_number)
-        return normalized.startswith("GK") and len(normalized) > 2
 
-    def track(self, tracking_number: str) -> TrackingResult:
-        normalized = self._normalize_number(tracking_number)
+        return (
+            normalized.startswith("GK")
+            and len(normalized) > 2
+        )
+
+    def track(
+        self,
+        tracking_number: str,
+    ) -> TrackingResult:
+        normalized = self._normalize_number(
+            tracking_number
+        )
 
         if not self.supports(normalized):
             raise ValueError(
-                "GlobKurier order numbers must begin with 'GK'."
+                "GlobKurier order numbers must begin "
+                "with 'GK'."
             )
 
         try:
             response = requests.get(
                 self.BASE_URL,
-                params={"orderNumber": normalized},
+                params={
+                    "orderNumber": normalized,
+                },
                 headers={
                     "Accept": "application/json",
                     "Accept-Language": "en",
@@ -39,22 +58,28 @@ class GlobKurierTracker(CarrierTracker):
                 },
                 timeout=15,
             )
+
             response.raise_for_status()
+
         except requests.Timeout as exc:
             raise GlobKurierError(
                 "GlobKurier took too long to respond."
             ) from exc
+
         except requests.HTTPError as exc:
             status_code = exc.response.status_code
 
             if status_code == 404:
                 raise GlobKurierError(
-                    f"No GlobKurier shipment found for {normalized}."
+                    "No GlobKurier shipment found for "
+                    f"{normalized}."
                 ) from exc
 
             raise GlobKurierError(
-                f"GlobKurier returned HTTP {status_code}."
+                "GlobKurier returned HTTP "
+                f"{status_code}."
             ) from exc
+
         except requests.RequestException as exc:
             raise GlobKurierError(
                 "Could not connect to GlobKurier."
@@ -62,6 +87,7 @@ class GlobKurierTracker(CarrierTracker):
 
         try:
             data: dict[str, Any] = response.json()
+
         except requests.JSONDecodeError as exc:
             raise GlobKurierError(
                 "GlobKurier returned an invalid response."
@@ -71,7 +97,8 @@ class GlobKurierTracker(CarrierTracker):
 
         if not isinstance(latest, dict):
             raise GlobKurierError(
-                "GlobKurier returned no current shipment status."
+                "GlobKurier returned no current "
+                "shipment status."
             )
 
         events = [
@@ -80,18 +107,33 @@ class GlobKurierTracker(CarrierTracker):
             if isinstance(event, dict)
         ]
 
-        events.sort(key=lambda event: event.timestamp)
+        events.sort(
+            key=lambda event: event.timestamp
+        )
 
         return TrackingResult(
             carrier=self.name,
             tracking_number=normalized,
-            status=str(latest.get("type", "UNKNOWN")),
-            status_name=str(latest.get("name", "Unknown")),
+            status=str(
+                latest.get(
+                    "type",
+                    "UNKNOWN",
+                )
+            ),
+            status_name=str(
+                latest.get(
+                    "name",
+                    "Unknown",
+                )
+            ),
             events=events,
         )
 
-    @staticmethod
-    def _parse_event(data: dict[str, Any]) -> TrackingEvent:
+    @classmethod
+    def _parse_event(
+        cls,
+        data: dict[str, Any],
+    ) -> TrackingEvent:
         raw_date = data.get("date")
 
         try:
@@ -99,20 +141,43 @@ class GlobKurierTracker(CarrierTracker):
                 str(raw_date),
                 "%Y-%m-%d %H:%M:%S",
             )
+
         except (TypeError, ValueError) as exc:
             raise GlobKurierError(
-                f"Invalid event date returned: {raw_date!r}"
+                "Invalid event date returned: "
+                f"{raw_date!r}"
             ) from exc
 
+        # datetime.strptime creates a timezone-naive datetime.
+        # Attach GlobKurier's timezone so elapsed-time math
+        # handles UTC offsets and daylight saving time correctly.
+        timestamp = timestamp.replace(
+            tzinfo=cls.API_TIMEZONE
+        )
+
         return TrackingEvent(
-        status=str(data.get("type", "UNKNOWN")),
-        name=str(data.get("name", "Unknown")),
-        description=data.get("description"),
-        location=data.get("location"),
-        timestamp=timestamp,
-        tracking_number=data.get("number"),
+            status=str(
+                data.get(
+                    "type",
+                    "UNKNOWN",
+                )
+            ),
+            name=str(
+                data.get(
+                    "name",
+                    "Unknown",
+                )
+            ),
+            description=data.get("description"),
+            location=data.get("location"),
+            timestamp=timestamp,
+            tracking_number=data.get("number"),
         )
 
     @staticmethod
-    def _normalize_number(tracking_number: str) -> str:
-        return "".join(tracking_number.upper().split())
+    def _normalize_number(
+        tracking_number: str,
+    ) -> str:
+        return "".join(
+            tracking_number.upper().split()
+        )
