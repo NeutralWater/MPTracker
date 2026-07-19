@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+
+# Build output
+build/
+dist/
+
+# PyInstaller
+*.spec
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
