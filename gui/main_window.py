@@ -54,7 +54,7 @@ class MPTrackerApp(ctk.CTk):
 
         title_label = ctk.CTkLabel(
             header_frame,
-            text="📦 MPTracker",
+            text="MPTracker",
             font=ctk.CTkFont(
                 size=28,
                 weight="bold",
@@ -160,7 +160,7 @@ class MPTrackerApp(ctk.CTk):
                 self.package_container,
                 text=(
                     "No active packages yet.\n"
-                    "Press + Add Package to begin 👀"
+                    "Press + Add Package to begin"
                 ),
                 font=ctk.CTkFont(size=17),
             )

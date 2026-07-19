@@ -1,7 +1,14 @@
 import sqlite3
+import os
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "mptracker.db"
+APP_DATA_DIR = Path(
+    os.getenv("LOCALAPPDATA", Path.home())
+) / "MPTracker"
+
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+DB_PATH = APP_DATA_DIR / "mptracker.db"
 
 
 def get_connection() -> sqlite3.Connection:
